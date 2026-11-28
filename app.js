@@ -90,23 +90,33 @@ const PINNED = [
   { a: 11346, b: 11392, title: '「我是真心的，但你有真心对过我吗」', note: '最后一次争执，音说再聊就拉黑' },
 ];
 
-// 魔女2 (unreleased sequel) work talk is masked in data.js itself — see privacy-report.json, sequel_review.
-// Its text reads "*******"; such lines count as work when exchanges are classified below.
-const MASK = '*******';
-const isMasked = m => m.x === MASK || (m.seg || []).some(s => s.x === MASK);
-// Masked lines — with the images / files sent in between them — are sealed: never shown, never opened.
-// Outside a folded exchange each run of them becomes one line "已隐去 N 条".
+// Masked text is masked in data.js itself (privacy-report.json) and reads "*******". masks.js, generated from the
+// report, says which id ranges are which kind:
+//   sequel   – 魔女2 talk and whole redacted days such as 2026-09-14: work, folded for good
+//   business – private commercial details: only those lines are sealed; their exchange still opens
+// (A plain "***" is an older link / name redaction and is left alone.)
+const MASKS = window.__MASKS__ || { mask: '*******', sequel: [], business: [] };
+const MASK = MASKS.mask;
+const TEXTUAL = new Set(['text', 'reply', 'mixed', 'forward', 'legacy_forward']);
+// the text a message shows (a mixed message shows its text parts, not its copied caption)
+const ownText = m => m.k === 'mixed' ? (m.seg || []).filter(s => s.t === 'text').map(s => s.x) : TEXTUAL.has(m.k) ? [m.x] : [];
+const inIdRanges = (R, i) => R.some(([a, b]) => i >= a && i <= b);
+for (const m of msgs) if (ownText(m).some(x => x === MASK)) m.mk = inIdRanges(MASKS.business, m.i) && !inIdRanges(MASKS.sequel, m.i) ? 'business' : 'sequel';
+const isMasked = m => m.mk === 'sequel';
+const MASK_REASON = { sequel: '魔女2未公开内容', business: '商务敏感内容' };
+// Masked lines of either kind — with the images / files sent in between them — are sealed: never shown, never
+// opened. Where they would be on screen, each run of them becomes one line "已隐去 N 条 · reason".
 const sealRuns = [];
 {
-  const TEXTUAL = new Set(['text', 'reply', 'mixed', 'forward', 'legacy_forward']);
   // same breaks as the exchanges below (30 min, new day), so a run is wholly inside or outside a folded exchange
   const joined = k => msgs[k].t - msgs[k - 1].t <= 30 * 60e3 && msgs[k].d.slice(0, 10) === msgs[k - 1].d.slice(0, 10);
   for (let i = 0; i < msgs.length; i++) {
-    if (!isMasked(msgs[i])) continue;
-    // extend over masked lines and the media between them; it ends on a masked line
+    const kind = msgs[i].mk;
+    if (!kind) continue;
+    // extend over masked lines of the same kind and the media between them; it ends on a masked line
     let j = i;
-    for (let k = i + 1; k < msgs.length && joined(k) && (isMasked(msgs[k]) || !TEXTUAL.has(msgs[k].k)); k++) if (isMasked(msgs[k])) j = k;
-    sealRuns.push({ pa: i, pb: j });
+    for (let k = i + 1; k < msgs.length && joined(k) && (msgs[k].mk === kind || !ownText(msgs[k]).some(Boolean)); k++) if (msgs[k].mk === kind) j = k;
+    sealRuns.push({ pa: i, pb: j, kind });
     i = j;
   }
   sealRuns.forEach((r, k) => { r.id = k + 1; r.n = r.pb - r.pa + 1; for (let i = r.pa; i <= r.pb; i++) msgs[i].seal = r.id; });
@@ -329,17 +339,19 @@ function renderDay(di) {
       topic = m.topic || 0;
       if (topic) sec.append(topicMarker(topicSegs[topic - 1]));
     }
-    // sealed 魔女2 lines outside a folded exchange: one line in their place, nothing to open
-    if (!m.topic && (m.seal || 0) !== seal) {
+    // sealed lines where they would be on screen (no folded exchange, or an opened one): one line, nothing to open
+    const onScreen = !m.topic || (expandedTopics.has(m.topic) && openable(m.topic));
+    if (onScreen && (m.seal || 0) !== seal) {
       seal = m.seal || 0;
       if (seal) {
         const r = sealRuns[seal - 1], n = el('div', 'seal-note');
         n.dataset.seal = seal;
         n.dataset.hid = msgs[r.pa].i;
-        n.append(el('span', 'topic-summary', `已隐去 ${r.n} 条`), el('span', 'topic-reason', '魔女2未公开内容'));
+        if (r.kind === 'business') n.style.setProperty('--c', '#8a6d1f');
+        n.append(el('span', 'topic-summary', `已隐去 ${r.n} 条`), el('span', 'topic-reason', MASK_REASON[r.kind]));
         sec.append(n);
       }
-    }
+    } else if (!onScreen) seal = 0;
     if (!visible(m)) continue;
     if (m.t - last > 5 * 60e3) sec.append(el('div', 'time-div', hm(m)));
     last = m.t;
@@ -419,8 +431,8 @@ function openAt(di, opts = {}) {
     // a hidden message is represented by its segment's marker
     const tm = msgs[resolvePos(opts.id)];
     let t = opts.topic ? chat.querySelector(`[data-topic="${opts.topic}"]`)
+      : !visible(tm) && tm.seal && chat.querySelector(`[data-seal="${tm.seal}"]`) ? chat.querySelector(`[data-seal="${tm.seal}"]`)
       : !visible(tm) && tm.topic ? chat.querySelector(`[data-topic="${tm.topic}"]`)
-      : !visible(tm) && tm.seal ? chat.querySelector(`[data-seal="${tm.seal}"]`)
       : chat.querySelector(`[data-id="${opts.id}"]`);
     if (!t) t = [...chat.querySelectorAll('.msg,.topic-marker,.seal-note')].find(e => +(e.dataset.id ?? e.dataset.hid) >= opts.id);
     if (t) {
@@ -605,6 +617,7 @@ const TYPES = {
   silence: { label: '沉默', color: '#8a94a6' },
   call: { label: '通话', color: '#21a366' },
   peak: { label: '高峰', color: '#0099ff' },
+  pay: { label: '报价', color: '#c98a00' },
   work: { label: '工作', color: '#7b5cf0', folded: true },
   daily: { label: '日常', color: '#588a7a', folded: true },
 };
@@ -694,7 +707,7 @@ msgs.forEach((m, i) => {
 // In particular, a mood line inside a pinned exchange must not become a second jump.
 // The highest ranked detection names the merged entry; folded kinds come last, so a silence or a busy day that
 // falls inside a work / daily exchange still names it and keeps it in the 全部 list.
-const EVENT_ORDER = ['pin', 'mood', 'burst', 'night', 'call', 'silence', 'peak', 'work', 'daily'];
+const EVENT_ORDER = ['pin', 'pay', 'mood', 'burst', 'night', 'call', 'silence', 'peak', 'work', 'daily'];
 const rankOf = type => EVENT_ORDER.indexOf(type);
 // Merging is idempotent: an already merged entry carries its tags, details, notes, sizes and exchange along.
 function mergeEvents(input) {
@@ -723,40 +736,92 @@ function mergeEvents(input) {
 }
 events = mergeEvents(events);
 
-// Classify complete exchanges conservatively. Disputes, annotations and marked events
-// keep their full session visible, including surrounding acknowledgements and media.
-// A session holding any of these words (pay, money, the falling-out, feelings) is never folded.
+// Classify exchanges. Inside each session (no pause over 30 min, same day) only the lines that matter stay
+// open: marked events, annotated lines, talk about pay (its own 报价 event) and about the falling-out.
+// The stretches between them are classified on their own as work / daily and folded.
 // Matched against the same text search looks at: the message, the quote it answers and forwarded lines.
 const msgText = m => [textOf(m), m.rp?.t, ...(m.fw?.it || [])].filter(Boolean).join(' ');
-const TOPIC_KEEP = /待遇|工资|稿费|报酬|酬劳|薪|人天|外包|分红|入股|股份|股东|报价|价格|价钱|多少钱|钱|预算|结算|结款|收款|打款|付款|转账|红包|报销|发票|税|抵扣|核算|欠款|合同|保障|辞职|离职|决策权|替代|替了|踢|拉黑|删了|把我删|求你|舔狗|伤心|难过|难受|生气|不满|不爽|失望|无语|吵架|画饼|pua|不合理|凭什么|过分|委屈|心情|抑郁|bpd|医院|生病|真心|尽力|不甘心|对不起|道歉|抱歉/i;
+// pay, prices, contracts — "30一组" counts as a price too
+const PAY = /待遇|工资|稿费|稿酬|报酬|酬劳|薪资|薪水|薪酬|月薪|底薪|人天|外包|分红|入股|股份|股东|报价|价格|价钱|多少钱|不用钱|要钱|给钱|付钱|花钱|拿钱|赚钱|钱的问题|预算|结算|结款|收款|打款|付款|转账|红包|报销|发票|税|抵扣|核算|欠款|合同|保障|月结|\d+\s*(元|块|rmb|\/组|一组|每组)/i;
+// the falling-out and feelings
+const FEEL = /辞职|离职|决策权|替代|替了|踢|拉黑|删了|把我删|求你|舔狗|伤心|难过|难受|生气|不满|不爽|失望|无语|吵架|画饼|pua|不合理|凭什么|过分|委屈|心情|抑郁|bpd|医院|生病|真心|尽力|不甘心|对不起|道歉|抱歉/i;
+// no folded line ever holds one of these words
+const TOPIC_KEEP = new RegExp(`${PAY.source}|${FEEL.source}`, 'i');
 {
-  const WORK = /动画|特效|原画|策划|程序|实装|导出|画布|像素|图层|帧|需求|美术|素材|场景|技能|待机|角色|版本|测试|bug|修复|源文件|打包|压缩包|psd|aseprite|tilemap|godot|魔女|魔旅|项目|地编|武器|子弹|枪|看板娘/i;
+  const WORK = /动画|特效|原画|策划|程序|实装|导出|画布|像素|图层|帧|需求|美术|素材|场景|技能|待机|角色|版本|测试|bug|修复|源文件|打包|压缩包|psd|aseprite|tilemap|godot|魔女|魔旅|项目|地编|武器|子弹|枪|看板娘|画|改|幅度|效果|动作|节奏|速率|调整|优化|逐帧|骨骼|spine|立绘|变身|翅膀|光效|有没有要|行不|可以不/i;
   const DAILY = /早安|晚安|睡觉|睡了|睡醒|起床|吃饭|恰饭|吃了|午饭|晚饭|早饭|好吃|外卖|奶茶|猫|喵|出门|回家|打游戏|玩游戏|周末|天气|下雨|哈哈|可爱|摸摸|抱抱|生日|休息/;
+  const FOLD_MIN = 2; // a single line on its own stays as it is
+  const NEIGHBOUR_MAX = 6; // an unclear stretch this short, right next to work, is part of that work
   const noted = new Set((window.__NOTES__ || []).map(n => n.i));
-  const protectedRanges = events.filter(e => e.tags.some(t => !['peak', 'silence'].includes(t)));
+  const kept = new Uint8Array(msgs.length);
+  for (const e of events) if (e.tags.some(t => !['peak', 'silence'].includes(t))) kept.fill(1, e.pa, e.pb + 1);
+  msgs.forEach((m, i) => { if (noted.has(m.i)) kept[i] = 1; });
+  // hits a few lines apart are one talk; it takes in the lines that ask and answer around it
+  const clusters = (idx, gap) => {
+    const out = [];
+    for (const k of idx) { const c = out.at(-1); if (c && k - c[1] <= gap) c[1] = k; else out.push([k, k]); }
+    return out;
+  };
   for (let pa = 0; pa < msgs.length;) {
     let pb = pa;
     while (pb + 1 < msgs.length && msgs[pb + 1].t - msgs[pb].t <= 30 * 60e3 && msgs[pb + 1].d.slice(0, 10) === msgs[pa].d.slice(0, 10)) pb++;
-    const session = msgs.slice(pa, pb + 1);
-    const texts = session.map(msgText);
-    const guarded = protectedRanges.some(e => e.pa <= pb && e.pb >= pa) || session.some((m, k) => noted.has(m.i) || TOPIC_KEEP.test(texts[k]));
-    if (!guarded) {
+    const texts = msgs.slice(pa, pb + 1).map(msgText);
+    const hits = re => texts.flatMap((t, k) => re.test(t) ? [pa + k] : []);
+    for (const [a, b] of clusters(hits(PAY), 6)) {
+      const x = Math.max(pa, a - 2), y = Math.min(pb, b + 3);
+      kept.fill(1, x, y + 1);
+      const first = msgs[a], st = rangeStats(x, y), t = msgText(first).replace(/\s+/g, ' ').trim();
+      events.push({ type: 'pay', pa: x, pb: y, a: msgs[x].i, b: msgs[y].i, t: msgs[x].t, date: msgs[x].d.slice(0, 10), size: y - x + 1,
+        title: t.length > 36 ? t.slice(0, 36) + '…' : t, meta: `${segRange({ pa: x, pb: y })} · ${PEER} ${st.p} 条 / ${SELF} ${st.s} 条` });
+    }
+    for (const [a, b] of clusters(hits(FEEL), 4)) kept.fill(1, Math.max(pa, a - 1), Math.min(pb, b + 1) + 1);
+    pa = pb + 1;
+  }
+  // a sealed 魔女2 run is never split between an open part and a folded one
+  for (const r of sealRuns) if (kept.subarray(r.pa, r.pb + 1).some(Boolean)) kept.fill(1, r.pa, r.pb + 1);
+  // 1. every stretch of not-kept lines inside a session, classified on its own
+  const pieces = [];
+  for (let pa = 0; pa < msgs.length;) {
+    let pb = pa;
+    while (pb + 1 < msgs.length && msgs[pb + 1].t - msgs[pb].t <= 30 * 60e3 && msgs[pb + 1].d.slice(0, 10) === msgs[pa].d.slice(0, 10)) pb++;
+    for (let x = pa; x <= pb;) {
+      if (kept[x]) { x++; continue; }
+      let y = x;
+      while (y + 1 <= pb && !kept[y + 1]) y++;
+      const stretch = msgs.slice(x, y + 1), texts = stretch.map(msgText);
       const work = texts.filter(s => WORK.test(s)).length;
       const daily = texts.filter(s => DAILY.test(s)).length;
-      const sequel = session.some(isMasked);
-      // a long chat that only touches on work now and then stays open
-      const type = sequel || (work && session.some(m => m.k === 'file')) || (work >= 2 && work >= session.length * 0.15) ? 'work'
-        : !work && (daily >= 2 || (daily && session.length <= 10)) ? 'daily' : null;
-      if (type) {
-        const g = { id: topicSegs.length + 1, type, pa, pb, n: session.length, sequel };
-        topicSegs.push(g);
-        for (const m of session) m.topic = g.id;
-        const a = msgs[pa], b = msgs[pb], stats = rangeStats(pa, pb);
-        events.push({ type, topic: g.id, pa, pb, a: a.i, b: b.i, t: a.t, date: a.d.slice(0, 10), size: g.n,
-          title: `${TYPES[type].label}对话 ${g.n} 条`, meta: `${segRange(g)} · ${PEER} ${stats.p} 条 / ${SELF} ${stats.s} 条` });
-      }
+      const sequel = stretch.some(isMasked);
+      // files and videos are deliveries: work. A long chat that only touches on work now and then stays open.
+      const type = sequel || stretch.some(m => m.k === 'file' || m.k === 'video') || (work >= 2 && work >= stretch.length * 0.15) || (work && stretch.length <= 3) ? 'work'
+        : !work && (daily >= 2 || (daily && stretch.length <= 10)) ? 'daily' : null;
+      pieces.push({ pa: x, pb: y, type, sequel });
+      x = y + 1;
     }
     pa = pb + 1;
+  }
+  const touching = (a, b) => b.pa === a.pb + 1 && msgs[b.pa].d.slice(0, 10) === msgs[a.pb].d.slice(0, 10);
+  // 2. a short unclear stretch right next to work (nothing shown between) is part of that work
+  pieces.forEach((g, k) => {
+    if (g.type || g.pb - g.pa + 1 > NEIGHBOUR_MAX) return;
+    const prev = pieces[k - 1], next = pieces[k + 1];
+    if ((prev?.type === 'work' && touching(prev, g)) || (next?.type === 'work' && touching(g, next))) g.type = 'work';
+  });
+  // 3. back-to-back stretches of the same kind on one day are one exchange (no stack of bars)
+  const merged = [];
+  for (const g of pieces) {
+    const p = merged.at(-1);
+    if (p && g.type && p.type === g.type && p.sequel === g.sequel && touching(p, g)) p.pb = g.pb;
+    else merged.push({ ...g });
+  }
+  for (const { pa: x, pb: y, type, sequel } of merged) {
+    if (!type || (y - x + 1 < FOLD_MIN && !sequel)) continue;
+    const g = { id: topicSegs.length + 1, type, pa: x, pb: y, n: y - x + 1, sequel };
+    topicSegs.push(g);
+    for (let i = x; i <= y; i++) msgs[i].topic = g.id;
+    const a = msgs[x], b = msgs[y], stats = rangeStats(x, y);
+    events.push({ type, topic: g.id, pa: x, pb: y, a: a.i, b: b.i, t: a.t, date: a.d.slice(0, 10), size: g.n,
+      title: `${TYPES[type].label}对话 ${g.n} 条`, meta: `${segRange(g)} · ${PEER} ${stats.p} 条 / ${SELF} ${stats.s} 条` });
   }
 }
 events = mergeEvents(events);

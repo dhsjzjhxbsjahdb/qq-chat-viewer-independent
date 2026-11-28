@@ -15,7 +15,7 @@ import vm from 'node:vm';
 const BASELINE_REF = '974142f'; // last viewer with overlapping, unmerged event markers
 const root = new URL('../', import.meta.url);
 const read = name => readFile(new URL(name, root), 'utf8');
-const [source, dataJs, notesJs] = await Promise.all([read('app.js'), read('data.js'), read('notes.js')]);
+const [source, dataJs, notesJs, masksJs] = await Promise.all([read('app.js'), read('data.js'), read('notes.js'), read('masks.js')]);
 
 // `to` may list alternatives: the first one found after `from` ends the section (older app.js versions differ).
 function cut(src, from, to) {
@@ -29,6 +29,7 @@ function load(src, expose) {
   const context = vm.createContext({ window: {}, localStorage: { getItem: () => null, setItem() {} } });
   vm.runInContext(dataJs, context);
   vm.runInContext(notesJs, context); // the classifier keeps annotated exchanges open
+  vm.runInContext(masksJs, context); // which masked ranges are 魔女2 and which are business
   const setup = cut(src, 'const data =', '/* ---------- message rendering');
   const helpers = cut(src, 'const segRange =', ['// Marker where', '// Expand one folded']);
   const pipeline = cut(src, 'const TYPES =', "let evFilter = 'all'");
@@ -166,7 +167,7 @@ console.log(`Folded exchanges: ${byType('work').length} work (${byType('work').f
 cur.expandedTopics.clear();
 const shown = () => msgs.reduce((n, m) => n + cur.visible(m), 0);
 const base = shown();
-assert.ok(msgs.every(m => !cur.isMasked(m) || m.seal), 'a masked line is not sealed');
+assert.ok(msgs.every(m => !m.mk || m.seal), 'a masked line is not sealed');
 for (const r of cur.sealRuns) {
   const t = msgs[r.pa].topic;
   for (let i = r.pa; i <= r.pb; i++) assert.equal(msgs[i].topic, t, `sealed run ${msgs[r.pa].i} straddles an exchange edge`);
@@ -177,8 +178,10 @@ for (const g of topicSegs) {
   cur.expandedTopics.add(g.id); // even forced open, an exchange holding 魔女2 lines shows nothing
   if (g.sequel) { assert.equal(shown(), base, `exchange ${g.id} holding 魔女2 lines can be opened`); locked++; }
   else {
-    assert.equal(shown(), base + g.n, `expanding ${g.id} shows other messages too`);
-    for (let i = g.pa; i <= g.pb; i++) assert.ok(cur.visible(msgs[i]));
+    // sealed (business) lines inside it stay hidden
+    const own = msgs.slice(g.pa, g.pb + 1).filter(m => !m.seal).length;
+    assert.equal(shown(), base + own, `expanding ${g.id} shows other messages too`);
+    for (let i = g.pa; i <= g.pb; i++) assert.equal(cur.visible(msgs[i]), !msgs[i].seal);
   }
   cur.expandedTopics.delete(g.id);
 }

@@ -9,6 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inRanges, eachMaskable, TEXT_KINDS } from './sequel-mask.mjs';
 import { eachSensitive, sensitiveSelector, eachPartial, textDigest, redactSpans } from './sensitive-mask.mjs';
+import { masksFor, masksSource } from './write-masks.mjs';
 import { parseNotes, parsePinned } from './public-notes-mask.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -79,7 +80,8 @@ try {
   const sequel = report.sequel_review;
   check(sequel?.version === 1 && typeof sequel.mask === 'string' && Array.isArray(sequel.ranges), 'sequel_report_version');
   const sensitive = report.sensitive_review;
-  check(sensitive?.version === 1 && sensitive.mask === '***' && Array.isArray(sensitive.ranges), 'sensitive_report_version');
+  // both reviews use one mask, so a masked line always reads the same
+  check(sensitive?.version === 1 && sensitive.mask === '*******' && sensitive.mask === sequel.mask && Array.isArray(sensitive.ranges), 'sensitive_report_version');
   const isSensitive = sensitiveSelector(sensitive);
   check(JSON.stringify(sensitive.dates) === '["2026-09-14"]', 'sensitive_dates');
   for (const date of sensitive.dates) {
@@ -92,6 +94,8 @@ try {
   check(target?.x === (isSensitive(TARGET_ID, 'x') ? sensitive.mask : EXPECTED_TEXT), 'reviewed_message_redacted');
   check(target?.d === '2026-10-04 16:17:03', 'reviewed_message_date');
 
+  // the viewer's list of masked ranges must match this report
+  check(readFileSync(resolve(ROOT, 'masks.js'), 'utf8') === masksSource(masksFor(report)), 'masks_js_matches_report');
   const notes = parseNotes(readFileSync(resolve(ROOT, 'notes.js'), 'utf8'));
   const pinned = parsePinned(readFileSync(resolve(ROOT, 'app.js'), 'utf8'));
   for (const id of sensitive.annotation_ids || []) check(notes.find(n => n.i === id)?.n === sensitive.mask, 'sensitive_annotation_masked');
