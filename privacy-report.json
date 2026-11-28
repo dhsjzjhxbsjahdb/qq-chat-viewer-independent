@@ -21,7 +21,7 @@
     "纸蝶",
     "音"
   ],
-  "statistics_note": "Root counters describe the original pass; supplemental_review and sequel_review describe later reviews.",
+  "statistics_note": "Root counters describe the original pass; supplemental_review, sequel_review and sensitive_review describe later reviews.",
   "supplemental_review": {
     "version": 1,
     "scope": "Confirmed recipient name and shipping address below province/city level, including repeated and nested text fields.",
@@ -72,11 +72,11 @@
       "public_data_download_redacted": true
     },
     "validation": {
-      "preserved_content_sha256": "a53bdf82b28d44833fd497b325e176fd235104f7b41b1965fd803c81c98049b8",
+      "preserved_content_sha256": "0db6e0da5c1064e807287b3763f8c2b4c0101a73fd868cfebca8eab631daf9a4",
       "ids_dates_sha256": "01b724c4ffccf2c9997473a32a8bb4bd1052ffc3a9e43abf6f3a08e3a3cd2380",
       "metadata_sha256": "5e33c96347d1287712df6d5df731d2531603dcbbb119d8deaef39b1e1b7e758f",
       "untouched_strings": 42158,
-      "preserved_content_note": "Since sequel_review: computed with the shipping line and the masked 魔女2 text fields set to fixed placeholders."
+      "preserved_content_note": "Computed with all reviewed shipping, sequel and sensitive discussion fields normalized to fixed placeholders."
     },
     "limits": [
       "Review covers parseable strings in data.js; image/video pixels were not checked with OCR.",
@@ -89,64 +89,238 @@
     "source_commit": "f55b91d0699b04eb143a28e3eb5e19d2e5603596",
     "mask": "*******",
     "ranges": [
-      [6841, 6856],
-      [6863, 6884],
-      [6910, 6914],
-      [6943, 6971],
-      [6983, 6986],
-      [7017, 7026],
-      [7160, 7160],
-      [7205, 7210],
-      [7497, 7519],
-      [7710, 7723],
-      [7725, 7784],
-      [7897, 7900],
-      [7908, 7946],
-      [7949, 7953],
-      [7955, 7971],
-      [7973, 7977],
-      [7978, 8065],
-      [8067, 8123],
-      [8125, 8130],
-      [8135, 8148],
-      [8222, 8244],
-      [8246, 8312],
-      [8334, 8345],
-      [8365, 8376],
-      [8377, 8381],
-      [8395, 8399],
-      [8454, 8466],
-      [8489, 8494],
-      [8555, 8580],
-      [8592, 8595],
-      [8654, 8665],
-      [8903, 8914],
-      [8923, 8950],
-      [8956, 8969],
-      [9187, 9193],
-      [9213, 9219],
-      [9610, 9638],
-      [9644, 9659],
-      [9692, 9705],
-      [9706, 9754],
-      [9761, 9783],
-      [9796, 9811],
-      [9821, 9829],
-      [9830, 9838],
-      [10034, 10065],
-      [10081, 10111],
-      [10119, 10137],
-      [10146, 10146],
-      [10154, 10197],
-      [10226, 10229],
-      [10240, 10278],
-      [10287, 10297],
-      [10377, 10390],
-      [10393, 10415],
-      [10417, 10422],
-      [10837, 10841],
-      [11064, 11076],
-      [11200, 11201]
+      [
+        6841,
+        6856
+      ],
+      [
+        6863,
+        6884
+      ],
+      [
+        6910,
+        6914
+      ],
+      [
+        6943,
+        6971
+      ],
+      [
+        6983,
+        6986
+      ],
+      [
+        7017,
+        7026
+      ],
+      [
+        7160,
+        7160
+      ],
+      [
+        7205,
+        7210
+      ],
+      [
+        7497,
+        7519
+      ],
+      [
+        7710,
+        7723
+      ],
+      [
+        7725,
+        7784
+      ],
+      [
+        7897,
+        7900
+      ],
+      [
+        7908,
+        7946
+      ],
+      [
+        7949,
+        7953
+      ],
+      [
+        7955,
+        7971
+      ],
+      [
+        7973,
+        7977
+      ],
+      [
+        7978,
+        8065
+      ],
+      [
+        8067,
+        8123
+      ],
+      [
+        8125,
+        8130
+      ],
+      [
+        8135,
+        8148
+      ],
+      [
+        8222,
+        8244
+      ],
+      [
+        8246,
+        8312
+      ],
+      [
+        8334,
+        8345
+      ],
+      [
+        8365,
+        8376
+      ],
+      [
+        8377,
+        8381
+      ],
+      [
+        8395,
+        8399
+      ],
+      [
+        8454,
+        8466
+      ],
+      [
+        8489,
+        8494
+      ],
+      [
+        8555,
+        8580
+      ],
+      [
+        8592,
+        8595
+      ],
+      [
+        8654,
+        8665
+      ],
+      [
+        8903,
+        8914
+      ],
+      [
+        8923,
+        8950
+      ],
+      [
+        8956,
+        8969
+      ],
+      [
+        9187,
+        9193
+      ],
+      [
+        9213,
+        9219
+      ],
+      [
+        9610,
+        9638
+      ],
+      [
+        9644,
+        9659
+      ],
+      [
+        9692,
+        9705
+      ],
+      [
+        9706,
+        9754
+      ],
+      [
+        9761,
+        9783
+      ],
+      [
+        9796,
+        9811
+      ],
+      [
+        9821,
+        9829
+      ],
+      [
+        9830,
+        9838
+      ],
+      [
+        10034,
+        10065
+      ],
+      [
+        10081,
+        10111
+      ],
+      [
+        10119,
+        10137
+      ],
+      [
+        10146,
+        10146
+      ],
+      [
+        10154,
+        10197
+      ],
+      [
+        10226,
+        10229
+      ],
+      [
+        10240,
+        10278
+      ],
+      [
+        10287,
+        10297
+      ],
+      [
+        10377,
+        10390
+      ],
+      [
+        10393,
+        10415
+      ],
+      [
+        10417,
+        10422
+      ],
+      [
+        10837,
+        10841
+      ],
+      [
+        11064,
+        11076
+      ],
+      [
+        11200,
+        11201
+      ]
     ],
     "messages_masked": 872,
     "fields_masked": 923,
@@ -171,5 +345,136 @@
       "Ranges were fixed from the viewer's keyword-based detection and are not recomputed after masking.",
       "Version history and external caches were not rewritten: earlier commits still contain the original text."
     ]
+  },
+  "sensitive_review": {
+    "version": 1,
+    "scope": "All discussion text on 2026-09-14, including reply and forward text, plus copies elsewhere in the archive.",
+    "source_commit": "bc56e18c17d7f89135bb5fedfd0c9421eb1ab8c6",
+    "mask": "***",
+    "dates": [
+      "2026-09-14"
+    ],
+    "date_ranges": [
+      [
+        9106,
+        9534
+      ]
+    ],
+    "business_ranges": [],
+    "ranges": [
+      [
+        9106,
+        9534
+      ]
+    ],
+    "mirrored_fields": [
+      {
+        "id": 71,
+        "path": "x"
+      },
+      {
+        "id": 487,
+        "path": "x"
+      },
+      {
+        "id": 624,
+        "path": "x"
+      },
+      {
+        "id": 1087,
+        "path": "x"
+      },
+      {
+        "id": 1708,
+        "path": "x"
+      },
+      {
+        "id": 1767,
+        "path": "x"
+      },
+      {
+        "id": 1848,
+        "path": "x"
+      },
+      {
+        "id": 2368,
+        "path": "x"
+      },
+      {
+        "id": 2426,
+        "path": "x"
+      },
+      {
+        "id": 2430,
+        "path": "x"
+      },
+      {
+        "id": 2478,
+        "path": "x"
+      },
+      {
+        "id": 2527,
+        "path": "x"
+      },
+      {
+        "id": 3797,
+        "path": "x"
+      },
+      {
+        "id": 4017,
+        "path": "x"
+      },
+      {
+        "id": 4610,
+        "path": "x"
+      },
+      {
+        "id": 5551,
+        "path": "x"
+      },
+      {
+        "id": 5982,
+        "path": "x"
+      },
+      {
+        "id": 6166,
+        "path": "x"
+      },
+      {
+        "id": 7003,
+        "path": "x"
+      },
+      {
+        "id": 8158,
+        "path": "x"
+      },
+      {
+        "id": 8484,
+        "path": "x"
+      },
+      {
+        "id": 8613,
+        "path": "x"
+      },
+      {
+        "id": 9677,
+        "path": "x"
+      },
+      {
+        "id": 11193,
+        "path": "x"
+      },
+      {
+        "id": 11198,
+        "path": "x"
+      }
+    ],
+    "dated_messages": 429,
+    "limits": [
+      "Message ids, dates, senders, kinds and media placeholders are preserved.",
+      "Version history and external caches are not rewritten."
+    ],
+    "messages_masked": 410,
+    "fields_masked": 428
   }
 }

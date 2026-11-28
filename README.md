@@ -13,6 +13,8 @@ QQ-style redacted static chat archive.
 
 公开数据本身已脱敏，清理确认的收件人姓名和市级以下具体地址，保留省市、聊天别名、日期、金额和上下文。未公开的魔女2（续作）工作对话共 58 段，文字已在数据中替换为 `*******`，消息编号、时间、发送人、类型和图片 / 文件占位保留。脱敏范围与统计记录在 [privacy-report.json](privacy-report.json)（`supplemental_review`、`sequel_review`）；魔女2 遮盖可用 `node tools/redact-sequel.mjs` 按记录重放，规则见 [sequel-mask.mjs](tools/sequel-mask.mjs)。
 
+2026 年 9 月 14 日的整天讨论（429 条记录）及其他日期中重复引用的原文已替换为 `***`，包括回复、混合消息和转发正文；2025 年 9 月 14 日不按整天处理。范围与字段数见 `sensitive_review`，可运行 `node tools/redact-sensitive.mjs` 重放，规则见 [sensitive-mask.mjs](tools/sensitive-mask.mjs)。
+
 注意：只改写了当前版本，Git 历史中更早的提交仍保留原文。
 
 ## 本地运行与校验

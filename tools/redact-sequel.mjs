@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inRanges, maskMessage } from './sequel-mask.mjs';
+import { maskSensitive } from './sensitive-mask.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = resolve(ROOT, 'data.js');
@@ -13,7 +14,8 @@ const raw = readFileSync(DATA, 'utf8');
 const match = /^window\.__CHAT__=(\{[\s\S]*\});\s*$/.exec(raw);
 if (!match) throw new Error('data.js: unexpected format');
 const data = JSON.parse(match[1]);
-const { mask, ranges } = JSON.parse(readFileSync(resolve(ROOT, 'privacy-report.json'), 'utf8')).sequel_review;
+const report = JSON.parse(readFileSync(resolve(ROOT, 'privacy-report.json'), 'utf8'));
+const { mask, ranges } = report.sequel_review;
 
 let messages = 0, fields = 0;
 for (const m of data.msgs) {
@@ -21,6 +23,9 @@ for (const m of data.msgs) {
   const changed = maskMessage(m, mask);
   if (changed.length) { messages++; fields += changed.length; }
 }
+
+// Newer sensitive scopes take precedence when they overlap a sequel range.
+if (report.sensitive_review) maskSensitive(data, report.sensitive_review);
 
 // Same serialisation as the original export: plain JSON with < and > escaped.
 const out = 'window.__CHAT__=' + JSON.stringify(data).replace(/[<>\u2028\u2029]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')) + ';\n';
