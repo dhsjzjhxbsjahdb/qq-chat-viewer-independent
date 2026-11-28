@@ -9,6 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inRanges, eachMaskable, TEXT_KINDS } from './sequel-mask.mjs';
 import { eachSensitive, sensitiveSelector } from './sensitive-mask.mjs';
+import { parseNotes, parsePinned } from './public-notes-mask.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TARGET_ID = 10920;
@@ -87,10 +88,19 @@ try {
   check(data.meta.count === data.msgs.length && report.messages === data.msgs.length, 'reported_count');
   check(new Set(data.msgs.map(message => message.i)).size === data.msgs.length, 'unique_message_ids');
   const target = data.msgs.find(message => message.i === TARGET_ID);
-  check(target?.x === EXPECTED_TEXT, 'reviewed_message_redacted');
+  check(target?.x === (isSensitive(TARGET_ID, 'x') ? sensitive.mask : EXPECTED_TEXT), 'reviewed_message_redacted');
   check(target?.d === '2026-10-04 16:17:03', 'reviewed_message_date');
 
+  const notes = parseNotes(readFileSync(resolve(ROOT, 'notes.js'), 'utf8'));
+  const pinned = parsePinned(readFileSync(resolve(ROOT, 'app.js'), 'utf8'));
+  for (const id of sensitive.annotation_ids || []) check(notes.find(n => n.i === id)?.n === sensitive.mask, 'sensitive_annotation_masked');
+  for (const { id, fields } of sensitive.pinned_fields || []) {
+    for (const field of fields) check(pinned.find(p => p.a === id)?.[field] === sensitive.mask, 'sensitive_pinned_masked');
+  }
+  check(digest(notes) === sensitive.public_validation.notes_sha256, 'public_notes_preserved');
+  check(digest(pinned) === sensitive.public_validation.pinned_sha256, 'public_pinned_preserved');
   const strings = collectStrings(data);
+  const publicStrings = [...strings, ...collectStrings(notes), ...collectStrings(pinned)];
   const nestedStrings = collectStrings(data.msgs).filter(({ path }) => path.split('.').length > 3);
   check(strings.length === review.strings_checked, 'checked_string_count');
   check(nestedStrings.length === review.nested_strings_checked, 'checked_nested_string_count');
@@ -149,14 +159,33 @@ try {
     if (shippingChanged) {
       const nameMatch = /^(\p{Script=Han}{2,4})(\s+\*{3}\s+)(湖北省武汉市)(.+)$/u.exec(original);
       check(nameMatch, 'baseline_shipping_format');
-      check(`[姓名已隐藏]${nameMatch[2]}${nameMatch[3]}[详细地址已隐藏]` === target.x, 'baseline_only_private_spans_changed');
+      check(`[姓名已隐藏]${nameMatch[2]}${nameMatch[3]}[详细地址已隐藏]` === EXPECTED_TEXT, 'baseline_only_private_spans_changed');
     }
     // Long reviewed originals must not survive in a quote, forward or another public data field.
     const originals = new Set();
     eachSensitive(before, sensitive, (m, path, value) => {
       if ((TEXT_KINDS.has(m.k) || (path !== 'x' && path !== 'cl.desc')) && value.length >= 8 && !/^\*+$/.test(value)) originals.add(value);
     });
-    check(!strings.some(({ value }) => [...originals].some(text => value.includes(text))), 'sensitive_originals_absent');
+    const readBaseline = name => execFileSync('git', ['show', `${args[1]}:${name}`], {
+      cwd: ROOT, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const oldNotes = parseNotes(readBaseline('notes.js'));
+    const oldPinned = parsePinned(readBaseline('app.js'));
+    for (const note of oldNotes) if ((sensitive.annotation_ids || []).includes(note.i)) {
+      if (note.n.length >= 8) originals.add(note.n);
+      note.n = sensitive.mask;
+    }
+    for (const { id, fields } of sensitive.pinned_fields || []) {
+      const entry = oldPinned.find(p => p.a === id);
+      check(entry, 'baseline_pinned_exists');
+      for (const field of fields) {
+        if (entry[field].length >= 8) originals.add(entry[field]);
+        entry[field] = sensitive.mask;
+      }
+    }
+    check(digest(oldNotes) === digest(notes), 'baseline_unrelated_notes_preserved');
+    check(digest(oldPinned) === digest(pinned), 'baseline_unrelated_pinned_preserved');
+    check(!publicStrings.some(({ value }) => [...originals].some(text => value.includes(text))), 'sensitive_originals_absent');
     baselineChecked = true;
   }
 
@@ -170,6 +199,8 @@ try {
     sequel_fields_masked: maskedFields,
     sensitive_messages_masked: sensitiveMessages.size,
     sensitive_fields_masked: sensitiveFields,
+    sensitive_annotations_masked: (sensitive.annotation_ids || []).length,
+    sensitive_pinned_fields_masked: (sensitive.pinned_fields || []).reduce((n, entry) => n + entry.fields.length, 0),
     baseline_checked: baselineChecked,
     preserved: ['message_ids', 'message_dates', 'metadata', 'structure', 'all_other_values'],
   }, null, 2));
