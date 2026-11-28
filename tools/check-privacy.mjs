@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inRanges, eachMaskable, TEXT_KINDS } from './sequel-mask.mjs';
-import { eachSensitive, sensitiveSelector } from './sensitive-mask.mjs';
+import { eachSensitive, sensitiveSelector, eachPartial, textDigest, redactSpans } from './sensitive-mask.mjs';
 import { parseNotes, parsePinned } from './public-notes-mask.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,6 +52,7 @@ function preservedDigest(data, sequel, sensitive) {
   message.x = OMITTED_TEXT;
   for (const m of copy.msgs) if (inRanges(sequel.ranges, m.i)) eachMaskable(m, (path, value, set) => set(sequel.mask));
   eachSensitive(copy, sensitive, (message, path, value, set) => set(sensitive.mask));
+  eachPartial(copy, sensitive, (message, path, value, set) => set(sensitive.mask));
   return digest(copy);
 }
 
@@ -99,6 +100,11 @@ try {
   }
   check(digest(notes) === sensitive.public_validation.notes_sha256, 'public_notes_preserved');
   check(digest(pinned) === sensitive.public_validation.pinned_sha256, 'public_pinned_preserved');
+  if (sensitive.personal_context_message_ids) {
+    const personal = data.msgs.filter(m => sensitive.personal_context_message_ids.includes(m.i));
+    check(personal.length === sensitive.personal_context_message_ids.length, 'personal_context_exists');
+    check(digest(personal) === sensitive.personal_context_sha256, 'personal_pay_context_preserved');
+  }
   const strings = collectStrings(data);
   const publicStrings = [...strings, ...collectStrings(notes), ...collectStrings(pinned)];
   const nestedStrings = collectStrings(data.msgs).filter(({ path }) => path.split('.').length > 3);
@@ -124,6 +130,15 @@ try {
     sensitiveMessages.add(message.i);
     sensitiveFields++;
   });
+  let partialFields = 0;
+  eachPartial(data, sensitive, (message, path, value, set, field) => {
+    check(!isSensitive(message.i, path), 'partial_scope_disjoint');
+    check(textDigest(value) === field.public_sha256, 'partial_text_masked');
+    sensitiveMessages.add(message.i);
+    sensitiveFields++;
+    partialFields++;
+  });
+  check(partialFields === (sensitive.partial_fields || []).length, 'partial_fields_exist');
   check(sensitiveMessages.size === sensitive.messages_masked && sensitiveFields === sensitive.fields_masked, 'sensitive_mask_counts');
   check(digest(data.msgs.map(({ i, d }) => [i, d])) === review.validation.ids_dates_sha256, 'ids_dates_preserved');
   check(digest(data.meta) === review.validation.metadata_sha256, 'metadata_preserved');
@@ -155,6 +170,10 @@ try {
     const allowed = new Set([`$.msgs.${indexOf.get(TARGET_ID)}.x`]);
     data.msgs.forEach((m, index) => { if (inRanges(sequel.ranges, m.i)) eachMaskable(m, path => allowed.add(`$.msgs.${index}.${path}`)); });
     eachSensitive(data, sensitive, (m, path) => allowed.add(`$.msgs.${indexOf.get(m.i)}.${path}`));
+    eachPartial(data, sensitive, (m, path) => allowed.add(`$.msgs.${indexOf.get(m.i)}.${path}`));
+    eachPartial(before, sensitive, (m, path, value, set, field) => {
+      check(strings.find(entry => entry.path === `$.msgs.${indexOf.get(m.i)}.${path}`)?.value === redactSpans(value, field, sensitive.mask), 'baseline_partial_exact_spans');
+    });
     check(changed.every(entry => allowed.has(entry.path)), 'baseline_exact_change_scope');
     if (shippingChanged) {
       const nameMatch = /^(\p{Script=Han}{2,4})(\s+\*{3}\s+)(湖北省武汉市)(.+)$/u.exec(original);
@@ -165,6 +184,10 @@ try {
     const originals = new Set();
     eachSensitive(before, sensitive, (m, path, value) => {
       if ((TEXT_KINDS.has(m.k) || (path !== 'x' && path !== 'cl.desc')) && value.length >= 8 && !/^\*+$/.test(value)) originals.add(value);
+    });
+    eachPartial(before, sensitive, (m, path, value, set, field) => {
+      if (textDigest(value) !== field.source_sha256) return;
+      for (const [a, b] of field.spans) if (b - a >= 8) originals.add(value.slice(a, b));
     });
     const readBaseline = name => execFileSync('git', ['show', `${args[1]}:${name}`], {
       cwd: ROOT, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
@@ -199,6 +222,8 @@ try {
     sequel_fields_masked: maskedFields,
     sensitive_messages_masked: sensitiveMessages.size,
     sensitive_fields_masked: sensitiveFields,
+    partial_fields_masked: partialFields,
+    personal_context_messages_preserved: (sensitive.personal_context_message_ids || []).length,
     sensitive_annotations_masked: (sensitive.annotation_ids || []).length,
     sensitive_pinned_fields_masked: (sensitive.pinned_fields || []).reduce((n, entry) => n + entry.fields.length, 0),
     baseline_checked: baselineChecked,
