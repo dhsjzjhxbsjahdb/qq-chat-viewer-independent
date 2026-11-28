@@ -17,6 +17,8 @@ QQ-style redacted static chat archive.
 
 2026 年 9 月 14 日的整天讨论（429 条记录）及其他日期中重复引用的原文已替换为 `*******`，包括回复、混合消息和转发正文；2025 年 9 月 14 日不按整天处理。其余商务脱敏只覆盖牵扯第三方主体的投资、发行、捆绑合作、外部项目或画师的合作条件与评价；仅涉及纸蝶和制作组的报价、报酬、结算、奖金及争执已恢复，相关批注与事件摘要也保留。混合消息只遮盖确认涉及第三方的片段，保留同条消息中的个人报酬上下文。原有个人隐私、未公开续作内容和发现的访问凭证仍遮盖；引用、转发中的敏感副本同步处理。范围与字段数见 `sensitive_review`，以其中 `scope_revision` 标记的最新第三方保护规则为准。可运行 `node tools/redact-sensitive.mjs` 重放，规则见 [sensitive-mask.mjs](tools/sensitive-mask.mjs) 和 [public-notes-mask.mjs](tools/public-notes-mask.mjs)。
 
+制作组自身不涉及第三方的财务（如核心成员奖金方案）公开，记录在 `sensitive_review.team_finance_restored`；其他成员的个人金额、投资方、发行条款、合作方和外包人员相关内容仍遮盖。
+
 页面用的遮盖区间清单 `masks.js` 由 `node tools/write-masks.mjs` 从 `privacy-report.json` 生成（只含消息编号，标明魔女2 / 商务两类），隐私校验会核对二者一致。
 
 注意：只改写了当前版本，Git 历史中更早的提交仍保留原文。
