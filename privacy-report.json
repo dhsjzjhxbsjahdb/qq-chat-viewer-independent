@@ -72,7 +72,7 @@
       "public_data_download_redacted": true
     },
     "validation": {
-      "preserved_content_sha256": "1e54d2fecf2b40df4ffd75b1d027c86fcd6348f6dcd137c3345c049f15868541",
+      "preserved_content_sha256": "140062a39c3b2ac74ca5c8888fefe26be31ce5e664168c514a73389e7625158e",
       "ids_dates_sha256": "01b724c4ffccf2c9997473a32a8bb4bd1052ffc3a9e43abf6f3a08e3a3cd2380",
       "metadata_sha256": "5e33c96347d1287712df6d5df731d2531603dcbbb119d8deaef39b1e1b7e758f",
       "untouched_strings": 42158,
@@ -390,10 +390,6 @@
         2617
       ],
       [
-        3164,
-        3164
-      ],
-      [
         3187,
         3187
       ],
@@ -411,6 +407,10 @@
       ],
       [
         3414,
+        3415
+      ],
+      [
+        3417,
         3424
       ],
       [
@@ -692,10 +692,6 @@
         2617
       ],
       [
-        3164,
-        3164
-      ],
-      [
         3187,
         3187
       ],
@@ -713,6 +709,10 @@
       ],
       [
         3414,
+        3415
+      ],
+      [
+        3417,
         3424
       ],
       [
@@ -1171,8 +1171,8 @@
       "Message ids, dates, senders, kinds and media placeholders are preserved.",
       "Version history and external caches are not rewritten."
     ],
-    "messages_masked": 885,
-    "fields_masked": 920,
+    "messages_masked": 883,
+    "fields_masked": 918,
     "annotation_ids": [],
     "pinned_fields": [],
     "public_validation": {
@@ -1213,8 +1213,8 @@
       ],
       "supersedes": "Scope revision 2 replaces the broad business-amount and personal-compensation masking of revision 1."
     },
-    "business_messages_masked": 351,
-    "business_fields_masked": 363,
+    "business_messages_masked": 349,
+    "business_fields_masked": 361,
     "business_messages_reviewed": 11395,
     "third_party_ranges": [
       [
@@ -1685,17 +1685,47 @@
         "public_sha256": "c99c9ea152c1a4d71ca54a7e6cefd8848f0e1207db0bbd38bbee9a868ad72b05"
       },
       {
-        "id": 3179,
-        "path": "x",
-        "category": "其他成员任职及财务情况",
+        "id": 3416,
+        "path": "seg.0.x",
+        "category": "其他成员，保留制作组核心成员分工",
+        "spans": [
+          [
+            114,
+            182
+          ]
+        ],
+        "source_sha256": "9faad95fde6a269a99d7cf2673900f4d1bac53126a4387e7b08ecd11c41d0af2",
+        "public_sha256": "cbeb7a6fc0e21da76a45e2ba54fc4185e1039a8e10206f8348f64d8e0583e69f"
+      },
+      {
+        "id": 3416,
+        "path": "seg.2.x",
+        "category": "外部资源置换美术与前成员",
         "spans": [
           [
             0,
-            148
+            128
           ]
         ],
-        "source_sha256": "c77a4a55b2e64dac75ebddb042f967864ead54115f21c9c60f0ae4c83bbef20a",
-        "public_sha256": "681080e9d626a41cb967d1925c5d50c21b81c478068cb2fad91219816ff96786"
+        "source_sha256": "216b6b0defcbde76a6d739099afbaa511bce5684d1f0952819c46e7988d3729d",
+        "public_sha256": "eb0f08df4490a936686900f130b51868a6f7a9ae73ac4fd4386660b2c3003a48"
+      },
+      {
+        "id": 3416,
+        "path": "x",
+        "category": "其他成员与外部合作美术，保留制作组核心成员分工",
+        "spans": [
+          [
+            114,
+            182
+          ],
+          [
+            219,
+            347
+          ]
+        ],
+        "source_sha256": "d071b09bdfb4da980090108a313794922b60d0716171582cf963b7482097576d",
+        "public_sha256": "ad5ccbcd9a2bb4c246a46d2aa5d4f762cffca5ac3eebfcb5bacadc3a3817c1b0"
       },
       {
         "id": 10605,
@@ -1767,6 +1797,16 @@
         5737,
         5738,
         5739
+      ]
+    },
+    "team_members_restored": {
+      "scope": "Founding members 童真 and 此间游 are part of the studio, not third parties: what concerns them (and 音) is public. Other contributors, former members and outside artists stay masked.",
+      "message_ids": [
+        3164,
+        3179
+      ],
+      "partial_ids": [
+        3416
       ]
     }
   }
